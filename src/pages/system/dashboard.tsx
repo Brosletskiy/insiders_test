@@ -1,0 +1,51 @@
+import { useEffect, useState } from 'react';
+import { getUserTodoLists } from '../../firebase/todoService';
+import type { TodoList } from '../../types';
+import TodoListCard from '../../components/system/todoListCard';
+import Sidebar from '../../components/system/sidebarList';
+import Layout from '../../components/system/layout';
+import { firebaseAuth } from '../../firebase/config';
+import AddListModal from '../../components/system/AddListModal';
+
+const Dashboard = () => {
+  const [lists, setLists] = useState<TodoList[]>([]);
+  const [search, setSearch] = useState('');
+  const user = firebaseAuth.currentUser;
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchLists = async () => {
+      if (user) {
+        const data = await getUserTodoLists(user.uid);
+        setLists(data);
+      }
+    };
+
+    fetchLists();
+  }, [user]);
+
+  const filtered = lists.filter((list) =>
+    list.title.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <Layout>
+      <Sidebar searchValue={search} onSearchChange={setSearch} openModal={ () => setModalOpen(true)}/>
+
+      <div className="flex-1 p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {filtered.map((list) => (
+          <TodoListCard key={list.id} list={list} />
+        ))}
+
+        {filtered.length === 0 && (
+          <p className="col-span-full text-gray-500">Списки не знайдено</p>
+        )}
+      </div>
+      {modalOpen && (
+        <AddListModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+      )}
+    </Layout>
+  );
+};
+
+export default Dashboard;
