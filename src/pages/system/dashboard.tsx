@@ -6,23 +6,23 @@ import Sidebar from '../../components/system/sidebarList';
 import Layout from '../../components/system/layout';
 import { firebaseAuth } from '../../firebase/config';
 import AddListModal from '../../components/system/AddListModal';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const Dashboard = () => {
   const [lists, setLists] = useState<TodoList[]>([]);
   const [search, setSearch] = useState('');
-  const user = firebaseAuth.currentUser;
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
-    const fetchLists = async () => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
       if (user) {
         const data = await getUserTodoLists(user.uid);
         setLists(data);
       }
-    };
+    });
 
-    fetchLists();
-  }, [user]);
+    return () => unsubscribe();
+  }, []);
 
   const filtered = lists.filter((list) =>
     list.title.toLowerCase().includes(search.toLowerCase())
@@ -30,7 +30,7 @@ const Dashboard = () => {
 
   return (
     <Layout>
-      <Sidebar searchValue={search} onSearchChange={setSearch} openModal={ () => setModalOpen(true)}/>
+      <Sidebar searchValue={search} onSearchChange={setSearch} openModal={() => setModalOpen(true)} />
 
       <div className="flex-1 p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {filtered.map((list) => (
