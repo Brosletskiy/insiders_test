@@ -7,6 +7,7 @@ import {
     getDocs,
     getDoc,
     serverTimestamp,
+    setDoc,
 } from 'firebase/firestore';
 import type { Role, TodoList } from '../types';
 import { db } from './config';
@@ -36,30 +37,34 @@ export const deleteTodoList = async (listId: string): Promise<void> => {
 };
 
 export const getUserTodoLists = async (userId: string): Promise<TodoList[]> => {
-    const snapshot = await getDocs(collection(db, 'todoLists'));
+    const todoListsSnap = await getDocs(collection(db, 'todoLists'));
+    const result: TodoList[] = [];
 
-    const allLists = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
-            const data = docSnap.data();
-            const members = await getListMembers(docSnap.id);
-            const memberRoles: Record<string, Role> = {};
-            members.forEach((m) => (memberRoles[m.userId] = m.role));
+    for (const listDoc of todoListsSnap.docs) {
+        const listId = listDoc.id;
+        const listData = listDoc.data();
 
-            const isUserInList = memberRoles[userId];
-            if (!isUserInList) return null;
+        const memberDocRef = doc(db, 'todoLists', listId, 'members', userId);
+        const memberDoc = await getDoc(memberDocRef);
+        if (!memberDoc.exists()) continue;
 
-            return {
-                id: docSnap.id,
-                title: data.title,
-                ownerId: data.ownerId,
-                createdAt: data.createdAt,
-                updatedAt: data.updatedAt,
-                memberRoles,
-            } as TodoList;
-        })
-    );
+        const members = await getListMembers(listId);
+        const memberRoles: Record<string, Role> = {};
+        members.forEach((m) => {
+            memberRoles[m.userId] = m.role;
+        });
 
-    return allLists.filter((list): list is TodoList => list !== null);
+        result.push({
+            id: listId,
+            title: listData.title,
+            ownerId: listData.ownerId,
+            createdAt: listData.createdAt,
+            updatedAt: listData.updatedAt,
+            memberRoles,
+        });
+    }
+
+    return result;
 };
 
 export const getTodoListById = async (listId: string): Promise<TodoList | null> => {
@@ -88,4 +93,17 @@ export const patchTodoList = async (
 ): Promise<void> => {
     const listRef = doc(db, 'todoLists', listId);
     await updateDoc(listRef, { ...updates, updatedAt: serverTimestamp() });
+};
+
+export const addUserToList = async (
+    listId: string,
+    userId: string,
+    role: Role = 'Viewer'
+): Promise<void> => {
+    const memberRef = doc(db, 'todoLists', listId, 'members', userId);
+    await setDoc(memberRef, {
+        userId,
+        role,
+        addedAt: serverTimestamp(),
+    });
 };

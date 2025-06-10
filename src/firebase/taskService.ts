@@ -37,7 +37,7 @@ export const deleteTask = async (
     await deleteDoc(ref);
 };
 
-// Update task (title, description, completed)
+// Update task
 export const updateTask = async (
     listId: string,
     taskId: string,

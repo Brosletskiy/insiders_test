@@ -1,6 +1,5 @@
 import { firebaseAuth } from './config';
 
-// Save to LocalStorage
 const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TIMESTAMP_KEY = 'lastRefresh';
 
