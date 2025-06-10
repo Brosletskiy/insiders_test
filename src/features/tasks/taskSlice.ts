@@ -41,7 +41,8 @@ export const addTask = createAsyncThunk(
     ) => {
         try {
             await addTaskToList(listId, task);
-            return thunkAPI.dispatch(fetchTasks(listId));
+            const refreshedTasks = await getTasksForList(listId);
+            return refreshedTasks.map(t => ({ ...t, todoListId: listId }));
         } catch (error: any) {
             return thunkAPI.rejectWithValue(error.message);
         }

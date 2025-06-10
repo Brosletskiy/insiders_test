@@ -34,7 +34,7 @@ export const routes: RouteConfig[] = [
         element: <Dashboard />,
     },
     {
-        path: '/list/:id',
+        path: '/list/:listId',
         element: <TodoListPage/>,
     }
 ];

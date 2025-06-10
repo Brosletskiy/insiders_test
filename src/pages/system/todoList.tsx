@@ -4,41 +4,43 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchTasks, addTask, removeTask, editTask } from '../../features/tasks/taskSlice';
 import TaskItem from '../../components/system/taskItem';
 import TaskEditorModal from '../../components/system/taskEditorModal';
-import { Role, type Task } from '../../types';
-import { fetchTodoLists } from '../../features/todoLists/todoListSlice';
+import { Role, type Task, type TodoList } from '../../types';
+import { getTodoListById } from '../../firebase/todoService';
 
 const TodoListPage = () => {
     const { listId } = useParams<{ listId: string }>();
     const dispatch = useAppDispatch();
-
-    const allTasks = useAppSelector(state => state.task.tasks);
     const currentUserId = useAppSelector(state => state.auth.user?.uid);
 
+    const [currentList, setCurrentList] = useState<TodoList | null>(null);
+    const [isAuthorized, setIsAuthorized] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-    const currentList = useAppSelector(state =>
-        state.todoLists.items.find(list => list.id === listId)
-    );
-
-    const memberRoles = useAppSelector(state =>
-        state.todoLists.items.find(list => list.id === listId)?.memberRoles || {}
-    );
-
-    const isAdmin = memberRoles[currentUserId || ''] === Role.Admin;
-
+    const allTasks = useAppSelector(state => state.task.tasks);
     const tasks = allTasks.filter(task => task.todoListId === listId);
 
-
     useEffect(() => {
-        if (currentUserId && !currentList) {
-            dispatch(fetchTodoLists(currentUserId));
-        }
-    }, [dispatch, currentUserId, currentList]);
+        const fetchList = async () => {
+            if (!listId || !currentUserId) return;
+
+            const fromDB = await getTodoListById(listId);
+            if (fromDB) {
+                const isMember = !!fromDB.memberRoles[currentUserId];
+                setIsAuthorized(isMember);
+                if (isMember) setCurrentList(fromDB);
+            }
+        };
+
+        fetchList();
+    }, [listId, currentUserId]);
 
     useEffect(() => {
         if (listId) dispatch(fetchTasks(listId));
     }, [dispatch, listId]);
+
+
+    const isAdmin = currentList?.memberRoles?.[currentUserId || ''] === Role.Admin;
 
     const handleEdit = (task: Task) => {
         setEditingTask(task);
@@ -55,7 +57,9 @@ const TodoListPage = () => {
         setEditingTask(null);
     };
 
-    if (!listId) return <div>Помилка: список не знайдено</div>;
+    if (!currentList || !isAuthorized) {
+        return <div>Сторінка не знайдена або доступ заборонено</div>;
+    }
 
     return (
         <div className="p-6">
@@ -71,7 +75,6 @@ const TodoListPage = () => {
                         </button>
                         <button
                             onClick={() => {
-                                // TODO: модалка для додавання viewer
                                 console.log('Open add viewer modal');
                             }}
                             className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
@@ -94,7 +97,7 @@ const TodoListPage = () => {
                             dispatch(editTask({
                                 listId: listId!,
                                 taskId: task.id,
-                                updates: { completed: !task.completed }
+                                updates: { completed: !task.completed },
                             }))
                         }
                     />
@@ -108,28 +111,29 @@ const TodoListPage = () => {
                     onSave={(title, description) => {
                         if (editingTask) {
                             dispatch(editTask({
-                                listId,
+                                listId: listId!,
                                 taskId: editingTask.id,
-                                updates: { title, description }
+                                updates: { title, description },
                             }));
                         } else {
                             dispatch(addTask({
-                                listId,
+                                listId: listId!,
                                 task: {
                                     title,
                                     description,
                                     completed: false,
-                                    todoListId: listId
-                                }
-                            }));
+                                    todoListId: listId!,
+                                },
+                            })).then(() => {
+                                dispatch(fetchTasks(listId!));
+                            });
                         }
                     }}
                     initialData={editingTask ? {
                         title: editingTask.title,
-                        description: editingTask.description || ''
+                        description: editingTask.description || '',
                     } : undefined}
                 />
-
             )}
         </div>
     );

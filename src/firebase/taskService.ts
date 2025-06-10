@@ -15,6 +15,10 @@ export const addTaskToList = async (
     listId: string,
     task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<void> => {
+    if (!task.title) {
+        throw new Error('Task must have a title');
+    }
+
     const ref = collection(db, 'todoLists', listId, 'tasks');
     await addDoc(ref, {
         ...task,

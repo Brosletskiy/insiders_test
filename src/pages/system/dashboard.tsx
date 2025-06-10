@@ -1,28 +1,23 @@
 import { useEffect, useState } from 'react';
-import { getUserTodoLists } from '../../firebase/todoService';
-import type { TodoList } from '../../types';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchTodoLists } from '../../features/todoLists/todoListSlice';
 import TodoListCard from '../../components/system/todoListCard';
 import Sidebar from '../../components/system/sidebarList';
 import Layout from '../../components/system/layout';
-import { firebaseAuth } from '../../firebase/config';
 import AddListModal from '../../components/system/AddListModal';
-import { onAuthStateChanged } from 'firebase/auth';
 
 const Dashboard = () => {
-  const [lists, setLists] = useState<TodoList[]>([]);
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(state => state.auth.user);
+  const lists = useAppSelector(state => state.todoLists.items);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
-      if (user) {
-        const data = await getUserTodoLists(user.uid);
-        setLists(data);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
+    if (user?.uid) {
+      dispatch(fetchTodoLists(user.uid));
+    }
+  }, [dispatch, user]);
 
   const filtered = lists.filter((list) =>
     list.title.toLowerCase().includes(search.toLowerCase())
@@ -41,8 +36,12 @@ const Dashboard = () => {
           <p className="col-span-full text-gray-500">Списки не знайдено</p>
         )}
       </div>
+
       {modalOpen && (
-        <AddListModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+        <AddListModal isOpen={modalOpen} onClose={() => {
+          setModalOpen(false);
+          if (user?.uid) dispatch(fetchTodoLists(user.uid));
+        }} />
       )}
     </Layout>
   );
